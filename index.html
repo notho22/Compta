@@ -831,6 +831,12 @@ function renderAccueil(){
     </button>`;
 
   document.getElementById('app').innerHTML = `
+    <div class="card" style="margin-bottom:18px;">
+      <input type="file" id="quick-scan-input" accept="image/*,application/pdf" capture="environment" style="display:none;" onchange="handleQuickScan(event)">
+      <button class="btn primary" id="quick-scan-btn" style="margin:0;" onclick="document.getElementById('quick-scan-input').click()">📷 Scanner un justificatif pour créer une écriture</button>
+      <div id="quick-scan-status" class="note" style="display:none;margin-bottom:0;"></div>
+    </div>
+
     <h2 class="section-title">Encaisser une recette</h2>
     <div class="grid2">${recettes.map(([k,c])=>btnHtml(k,c)).join('')}</div>
 
@@ -867,6 +873,88 @@ function txRowHtml(t){
       <div class="amt ${colorClass}">${sign} ${euro(Math.abs(t.amount))}</div>
       ${regleToggle}
     </div>`;
+}
+let quickScanPending = null; // {amount, date, piece} — en attente du choix de catégorie
+async function handleQuickScan(event){
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  if(!file) return;
+  const statusEl = document.getElementById('quick-scan-status');
+  const btnEl = document.getElementById('quick-scan-btn');
+  if(typeof Tesseract === 'undefined'){
+    if(statusEl){ statusEl.style.display='block'; statusEl.textContent = "La lecture automatique n'a pas pu se charger (connexion internet nécessaire la première fois)."; }
+    return;
+  }
+  if(btnEl) btnEl.disabled = true;
+  if(statusEl){ statusEl.style.display='block'; statusEl.textContent = 'Lecture du justificatif en cours… (quelques secondes)'; }
+  try{
+    const images = await fileToOcrImages(file, 3);
+    let text = '';
+    for(let i=0;i<images.length;i++){
+      const result = await Tesseract.recognize(images[i], 'fra', {
+        logger: m=>{
+          if(m.status==='recognizing text' && statusEl){
+            statusEl.textContent = 'Lecture en cours… '+Math.round((m.progress||0)*100)+'%'+(images.length>1?` (page ${i+1}/${images.length})`:'');
+          }
+        }
+      });
+      text += '\n' + ((result && result.data && result.data.text) || '');
+    }
+    const parsed = parseReceiptText_(text);
+    let piece = null;
+    if(statusEl) statusEl.textContent = 'Envoi du justificatif sur Drive…';
+    try{
+      const folderId = await findOrCreateDriveSubfolder('Justificatifs');
+      const uploaded = await driveUploadFile(file, folderId, `${todayStr()}_${file.name}`);
+      piece = { id: uploaded.id, name: uploaded.name, link: driveFileViewLink(uploaded.id) };
+    }catch(upErr){ console.error('Erreur upload Drive', upErr); }
+    if(statusEl){ statusEl.style.display='none'; statusEl.textContent=''; }
+    openQuickScanCategoryPicker_(parsed, piece);
+  }catch(e){
+    console.error('Erreur OCR', e);
+    if(statusEl) statusEl.textContent = 'Erreur pendant la lecture du justificatif — réessayez.';
+  }finally{
+    if(btnEl) btnEl.disabled = false;
+  }
+}
+function openQuickScanCategoryPicker_(parsed, piece){
+  quickScanPending = { amount: parsed.amount, date: parsed.date, piece };
+  const recettes = Object.entries(CATEGORIES).filter(([k,c])=>c.type==='recette' && !c.hidden);
+  const depenses = Object.entries(CATEGORIES).filter(([k,c])=>c.type==='depense' && !c.hidden);
+  const btnHtml = (k,c) => `
+    <button class="op-btn ${c.type}" onclick="pickQuickScanCategory('${k}')">
+      <span class="icon">${c.icon}</span>
+      <span class="lbl">${c.label}</span>
+    </button>`;
+  document.getElementById('overlay').innerHTML = `
+    <div class="backdrop" onclick="cancelQuickScan_()"></div>
+    <div class="sheet">
+      <h3>📷 Justificatif scanné</h3>
+      <div class="note" style="margin-top:0;">
+        ${parsed.amount!=null?`Montant détecté : <b>${parsed.amount} €</b>. `:'Montant non détecté — à saisir manuellement. '}
+        ${parsed.date?`Date détectée : <b>${parsed.date}</b>. `:''}
+        ${piece?'Justificatif envoyé sur Drive ✓. ':''}
+        Choisissez la catégorie de cette opération :
+      </div>
+      <h2 class="section-title" style="margin-top:4px;">Recette</h2>
+      <div class="grid2">${recettes.map(([k,c])=>btnHtml(k,c)).join('')}</div>
+      <h2 class="section-title">Dépense</h2>
+      <div class="grid2">${depenses.map(([k,c])=>btnHtml(k,c)).join('')}</div>
+      <button class="btn ghost" onclick="cancelQuickScan_()">Annuler</button>
+    </div>
+  `;
+  document.getElementById('overlay').classList.add('open');
+}
+function cancelQuickScan_(){
+  quickScanPending = null;
+  closeForm();
+}
+function pickQuickScanCategory(catKey){
+  const qs = quickScanPending;
+  quickScanPending = null;
+  if(!qs) return;
+  openForm(catKey, null, null, { amount: qs.amount, date: qs.date });
+  if(qs.piece){ pendingPieceJointe = qs.piece; renderPieceJointeStatus_(); }
 }
 function formatDateShort(d){
   const dt=new Date(d+'T00:00:00');
