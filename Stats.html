@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprint Volca — Profils Force-Vitesse</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏃</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#10141b;
+  --bg-panel:#1a2029;
+  --bg-panel-2:#212936;
+  --bg-elevated:#262f3d;
+  --border:#2b3340;
+  --border-soft:#232a35;
+  --text:#eef1f5;
+  --text-muted:#93a0b2;
+  --text-faint:#5d6878;
+  --force:#ff6b47;
+  --vitesse:#35c6cf;
+  --equilibre:#e8b339;
+  --neutral:#8993a2;
+  --font-display:'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-body:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(255,107,71,0.10), transparent 60%),
+    radial-gradient(900px 400px at -10% 110%, rgba(53,198,207,0.08), transparent 60%),
+    var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(255,107,71,0.35);}
+a{color:inherit;}
+button{font-family:inherit;}
+
+.topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:24px;
+  padding:22px clamp(16px,4vw,40px);
+  border-bottom:1px solid var(--border);
+}
+.brand{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+.brand h1{
+  font-family:var(--font-display); font-weight:700; letter-spacing:.01em;
+  font-size:clamp(24px,3.4vw,34px); margin:0; line-height:1;
+}
+.brand h1 span{color:var(--force);}
+.brand p{margin:0; color:var(--text-muted); font-size:14px;}
+.topbar .meta{color:var(--text-faint); font-size:12.5px; text-align:right;}
+
+.layout{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  min-height:calc(100vh - 86px);
+}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr;}
+  .roster{border-right:none; border-bottom:1px solid var(--border); max-height:340px;}
+}
+
+.roster{
+  border-right:1px solid var(--border);
+  padding:18px 14px 24px;
+  overflow-y:auto;
+}
+.roster-controls{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+.search-input{
+  background:var(--bg-panel-2); border:1px solid var(--border); color:var(--text);
+  padding:9px 12px; border-radius:7px; font-size:14px; font-family:var(--font-body);
+  width:100%;
+}
+.search-input:focus-visible{outline:2px solid var(--force); outline-offset:1px;}
+.chip-row{display:flex; gap:6px; flex-wrap:wrap;}
+.chip{
+  background:var(--bg-panel-2); border:1px solid var(--border); color:var(--text-muted);
+  padding:5px 10px; border-radius:999px; font-size:12.5px; cursor:pointer;
+  transition:border-color .15s, color .15s, background .15s;
+}
+.chip:hover{color:var(--text);}
+.chip[aria-pressed="true"]{color:var(--bg); background:var(--text); border-color:var(--text);}
+.chip:focus-visible{outline:2px solid var(--force); outline-offset:1px;}
+
+.roster-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px;}
+.roster-item{
+  display:block; width:100%; text-align:left; background:transparent; border:1px solid transparent;
+  border-left:3px solid var(--rowcolor, var(--border)); border-radius:6px;
+  padding:9px 10px; cursor:pointer; color:var(--text);
+}
+.roster-item:hover{background:var(--bg-panel-2);}
+.roster-item.active{background:var(--bg-elevated); border-color:var(--border);}
+.roster-item.active{border-left-color:var(--rowcolor);}
+.roster-item:focus-visible{outline:2px solid var(--force); outline-offset:1px;}
+.roster-item .nm{font-weight:600; font-size:14.5px;}
+.roster-item .sub{font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; margin-top:2px;}
+.roster-empty{color:var(--text-faint); font-size:13px; padding:12px 4px;}
+
+main{padding:clamp(16px,3vw,36px); min-width:0;}
+
+/* ---- Recap view ---- */
+.recap-head{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px;}
+.recap-head h2{font-family:var(--font-display); font-weight:600; font-size:28px; margin:0;}
+.recap-head p{color:var(--text-muted); margin:4px 0 0; font-size:14px; max-width:60ch;}
+.sortbar{display:flex; gap:6px; align-items:center; font-size:12.5px; color:var(--text-faint);}
+.sortbar select{
+  background:var(--bg-panel-2); border:1px solid var(--border); color:var(--text);
+  padding:6px 9px; border-radius:6px; font-size:13px; font-family:var(--font-body);
+}
+
+.table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:10px;}
+table.recap{width:100%; border-collapse:collapse; font-size:13.5px; min-width:720px;}
+table.recap th{
+  text-align:left; font-weight:600; color:var(--text-muted); font-size:11.5px;
+  text-transform:uppercase; letter-spacing:.04em; padding:10px 12px;
+  border-bottom:1px solid var(--border); background:var(--bg-panel);
+  position:sticky; top:0;
+}
+table.recap td{padding:9px 12px; border-bottom:1px solid var(--border-soft);}
+table.recap tbody tr{cursor:pointer; transition:background .12s;}
+table.recap tbody tr:hover{background:var(--bg-panel-2);}
+table.recap tbody tr:last-child td{border-bottom:none;}
+table.recap td.name{font-weight:600;}
+.badge{
+  display:inline-block; padding:3px 9px; border-radius:999px; font-size:11.5px; font-weight:600;
+  border:1px solid currentColor;
+}
+.badge.force{color:var(--force);}
+.badge.vitesse{color:var(--vitesse);}
+.badge.equilibre{color:var(--equilibre);}
+.sexe-tag{color:var(--text-faint); font-size:12px;}
+.mini-bar{position:relative; width:72px; height:6px; background:var(--bg-elevated); border-radius:4px; overflow:hidden;}
+.mini-bar i{position:absolute; inset:0 auto 0 0; background:var(--vitesse); border-radius:4px;}
+
+/* ---- Player view ---- */
+.player-view[hidden]{display:none;}
+.back-btn{
+  background:none; border:1px solid var(--border); color:var(--text-muted);
+  padding:7px 13px; border-radius:7px; font-size:13px; cursor:pointer; margin-bottom:18px;
+}
+.back-btn:hover{color:var(--text); border-color:var(--text-faint);}
+.back-btn:focus-visible{outline:2px solid var(--force); outline-offset:1px;}
+
+.pv-header{display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:22px;}
+.pv-title{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;}
+.pv-title h2{font-family:var(--font-display); font-weight:700; font-size:clamp(32px,5vw,46px); margin:0; line-height:1;}
+.pv-badges{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.hero-stat{text-align:right;}
+.hero-stat .v{font-family:var(--font-display); font-weight:700; font-size:44px; line-height:1; color:var(--force);}
+.hero-stat .u{color:var(--text-muted); font-size:13px;}
+
+.grid-2{display:grid; grid-template-columns:1.1fr .9fr; gap:20px; align-items:start;}
+@media (max-width:980px){.grid-2{grid-template-columns:1fr;}}
+
+.panel{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:12px;
+  padding:18px 20px 20px;
+}
+.panel h3{
+  font-family:var(--font-display); font-weight:600; font-size:17px; margin:0 0 4px;
+  letter-spacing:.01em;
+}
+.panel .hint{color:var(--text-faint); font-size:12px; margin:0 0 14px;}
+.chart-box{position:relative; height:230px;}
+
+.stat-bars{display:flex; flex-direction:column; gap:14px;}
+.stat-bar-row .lbl{display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;}
+.stat-bar-row .lbl b{font-weight:600;}
+.stat-bar-row .lbl .val{font-variant-numeric:tabular-nums; color:var(--text);}
+.stat-bar-row .delta{font-size:11.5px; color:var(--text-faint); font-variant-numeric:tabular-nums;}
+.track{position:relative; height:8px; background:var(--bg-elevated); border-radius:4px;}
+.track .fill{position:absolute; top:0; bottom:0; left:0; border-radius:4px; background:var(--neutral);}
+.track .avg-tick{position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--text-faint);}
+.track .avg-tick::after{content:""; position:absolute; top:-3px; left:50%; transform:translateX(-50%); width:5px; height:5px; border-radius:50%; background:var(--text-faint);}
+
+.splits-table{width:100%; border-collapse:collapse; font-size:13px; margin-top:4px;}
+.splits-table th,.splits-table td{padding:7px 8px; text-align:center; border-bottom:1px solid var(--border-soft);}
+.splits-table th{color:var(--text-faint); font-weight:500; font-size:11.5px;}
+.splits-table td:first-child,.splits-table th:first-child{text-align:left; color:var(--text-muted);}
+
+.text-block{font-size:14px; line-height:1.6; color:var(--text); white-space:pre-line;}
+.text-block.muted{color:var(--text-muted);}
+
+.span-2{grid-column:1/-1;}
+.stack{display:flex; flex-direction:column; gap:20px;}
+
+footer{
+  border-top:1px solid var(--border); padding:16px clamp(16px,4vw,40px);
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+  color:var(--text-faint); font-size:12.5px;
+}
+.lex-btn{
+  background:var(--bg-panel-2); border:1px solid var(--border); color:var(--text-muted);
+  padding:7px 13px; border-radius:7px; font-size:13px; cursor:pointer;
+}
+.lex-btn:hover{color:var(--text);}
+
+.modal-backdrop[hidden]{display:none;}
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(8,10,14,0.72); display:flex; align-items:center; justify-content:center;
+  padding:24px; z-index:50;
+}
+.modal{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:14px; max-width:640px; width:100%;
+  max-height:80vh; overflow-y:auto; padding:22px 24px;
+}
+.modal h3{font-family:var(--font-display); font-size:22px; margin:0 0 14px;}
+.modal dl{margin:0;}
+.modal dt{font-weight:600; margin-top:12px;}
+.modal dd{margin:4px 0 0; color:var(--text-muted); font-size:13.5px; line-height:1.5;}
+.modal-close{
+  position:absolute; top:18px; right:18px; background:none; border:none; color:var(--text-muted);
+  font-size:20px; cursor:pointer;
+}
+.modal-inner{position:relative;}
+
+@media (prefers-reduced-motion:no-preference){
+  .roster-item, .back-btn, .chip, .lex-btn{transition:background .12s,border-color .12s,color .12s;}
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <h1>Sprint <span>Volca</span></h1>
+    <p>Profils Force&#8209;Vitesse — tests 0&#8209;30&nbsp;m</p>
+  </div>
+  <div class="meta">22 athlètes · d'après l'étude de JB&nbsp;Morin<br>cliquez un nom pour le détail</div>
+</div>
+
+<div class="layout">
+  <aside class="roster" aria-label="Liste des athlètes">
+    <div class="roster-controls">
+      <input id="search" class="search-input" type="search" placeholder="Rechercher un joueur…" aria-label="Rechercher un joueur">
+      <div class="chip-row" id="sexe-filters" role="group" aria-label="Filtrer par sexe"></div>
+      <div class="chip-row" id="profil-filters" role="group" aria-label="Filtrer par profil"></div>
+    </div>
+    <ul class="roster-list" id="roster-list"></ul>
+  </aside>
+
+  <main>
+    <section id="recap-view">
+      <div class="recap-head">
+        <div>
+          <h2>Récapitulatif de l'équipe</h2>
+          <p>Toutes les données du test, pour tout le monde. Cliquez sur un joueur (ici ou à gauche) pour voir son détail et sa comparaison au groupe.</p>
+        </div>
+        <div class="sortbar">
+          Trier par
+          <select id="sort-select">
+            <option value="MaxSpeed">Vitesse max</option>
+            <option value="name">Nom</option>
+            <option value="F0">F0</option>
+            <option value="V0">V0</option>
+            <option value="Pmax">Pmax</option>
+            <option value="groupe">Profil</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="recap">
+          <thead>
+            <tr>
+              <th>Joueur</th><th>Profil</th><th>F0 (N/kg)</th><th>V0 (m/s)</th><th>Pmax (W/kg)</th>
+              <th>RFmax</th><th>Drf</th><th>Vitesse max</th>
+            </tr>
+          </thead>
+          <tbody id="recap-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="player-view" class="player-view" hidden>
+      <button class="back-btn" id="back-btn">&larr; Retour au récapitulatif</button>
+      <div class="pv-header">
+        <div class="pv-title">
+          <h2 id="pv-name"></h2>
+          <div class="pv-badges" id="pv-badges"></div>
+        </div>
+        <div class="hero-stat">
+          <div class="v" id="pv-maxspeed"></div>
+          <div class="u">m/s vitesse max</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <h3>Vitesse par tronçon de 5&nbsp;m</h3>
+          <p class="hint">Comparé à la moyenne de son groupe (même sexe) — ligne pointillée</p>
+          <div class="chart-box"><canvas id="chart-segments"></canvas></div>
+        </div>
+        <div class="panel">
+          <h3>Position par rapport au groupe</h3>
+          <p class="hint" id="pv-group-hint"></p>
+          <div class="stat-bars" id="stat-bars"></div>
+        </div>
+
+        <div class="panel span-2">
+          <h3>Temps cumulés au plot</h3>
+          <table class="splits-table" id="splits-table"></table>
+        </div>
+
+        <div class="panel">
+          <h3>Commentaire</h3>
+          <div class="text-block" id="pv-commentaire"></div>
+        </div>
+        <div class="panel">
+          <h3>Posture</h3>
+          <div class="text-block" id="pv-posture"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <span>Générée à partir du classeur Sprint_Volca — données embarquées dans cette page, à régénérer si le classeur change.</span>
+  <button class="lex-btn" id="lex-open">Lexique des mesures</button>
+</footer>
+
+<div class="modal-backdrop" id="lex-modal" hidden>
+  <div class="modal">
+    <div class="modal-inner">
+      <button class="modal-close" id="lex-close" aria-label="Fermer">&times;</button>
+      <h3>Lexique des mesures</h3>
+      <dl id="lex-content"></dl>
+    </div>
+  </div>
+</div>
+
+<script id="dashboard-data" type="application/json">{"players": {"Adrien": {"groupe": "Déficit Force", "splits": [1.517, 2.283, 3, 3.617, 4.283, 4.883], "F0": 6.1156, "V0": 8.9614, "Pmax": 13.7011, "FVslope": -0.6824, "RFmax": 0.402, "Drf": -0.0639, "Vopt": 4.4807, "MaxSpeed": 8.1712, "groupe2": "Déficit Force", "deltas": [1.517, 0.766, 0.717, 0.617, 0.666, 0.6], "pct_diff": [0.505, 0.936, 0.861, 1.079, 0.901], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale élevée (8.17 m/s, 29.4 km/h), au-dessus de la moyenne des hommes. \nProfil plutôt orienté vitesse : déficit relatif de force (F0=6.12 N/kg vs V0=8.96 m/s). \nQualité du sprint : orientation de la force peu efficace au démarrage (RFmax faible pour son groupe), bon maintien de l'efficacité technique à haute vitesse (Drf parmi les meilleurs de son groupe). Priorité : développement de la force horizontale (sprints résistés lourds/traîneau, musculation, pliométrie horizontale).", "posture": "Bonne extension de la hanche en fin d'appui et belle remontée du genou de la jambe de rappel, buste cassé jusqu'au 20M, propulsion verticale un peu élevé, tête vers l'avant. Technique globalement solide en dessous de la hanche, gainage recommandé et contraction du buste au-delà de 10M pour atteindre plus rapidement la vitesse maximale, + d'attaque devant du pied et + d'utilisation des bras.", "seg_speed": [3.296, 6.527, 6.974, 8.104, 7.508, 8.333]}, "Alex": {"groupe": "Equilibré", "splits": [1.383, 2.2, 2.9, 3.583, 4.267, 4.917], "F0": 7.7215, "V0": 7.8585, "Pmax": 15.1699, "FVslope": -0.9826, "RFmax": 0.4294, "Drf": -0.0924, "Vopt": 3.9293, "MaxSpeed": 7.5296, "groupe2": "Equilibré", "deltas": [1.383, 0.817, 0.7, 0.683, 0.684, 0.65], "pct_diff": [0.591, 0.857, 0.976, 1.001, 0.95], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale en retrait (7.53 m/s, 27.1 km/h), en dessous de la moyenne des hommes. \nProfil équilibré (V0=7.86 m/s vs F0=7.72 N/kg).Qualité du sprint : perte technique marquée quand la vitesse augmente (Drf très négatif pour son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Buste peu incliné vers l'avant au début du sprint. À travailler : buste plus incliné pour améliorer l'accélération, amplitude et relâchement du bras pour mieux accompagner la foulée.", "seg_speed": [3.615, 6.12, 7.143, 7.321, 7.31, 7.692]}, "Aloïs": {"groupe": "Déficit Force", "splits": [1.35, 2.133, 2.783, 3.417, 4.017, 4.6], "F0": 7.4664, "V0": 9.02, "Pmax": 16.8368, "FVslope": -0.8278, "RFmax": 0.4454, "Drf": -0.0768, "Vopt": 4.51, "MaxSpeed": 8.4354, "groupe2": "Déficit Force", "deltas": [1.35, 0.783, 0.65, 0.634, 0.6, 0.583], "pct_diff": [0.58, 0.83, 0.975, 0.946, 0.972], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale élevée (8.44 m/s, 30.4 km/h), au-dessus de la moyenne des hommes.\nProfil plutôt orienté vitesse : déficit relatif de force (F0=7.47 N/kg vs V0=9.02 m/s).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe).\nPriorité : développement de la force horizontale (sprints résistés lourds/traîneau, musculation, pliométrie horizontale).", "posture": "Bon piqué du genou et buste engagé vers l'avant, posture dynamique et équilibrée.", "seg_speed": [3.704, 6.386, 7.692, 7.886, 8.333, 8.576]}, "Ambre": {"groupe": "Déficit Vitesse", "splits": [1.533, 2.467, 3.367, 4.217, 5.117, 5.983], "F0": 7.5483, "V0": 5.8576, "Pmax": 11.0538, "FVslope": -1.2886, "RFmax": 0.3699, "Drf": -0.1246, "Vopt": 2.9288, "MaxSpeed": 5.7394, "groupe2": "Déficit Vitesse", "deltas": [1.533, 0.934, 0.9, 0.85, 0.9, 0.866], "pct_diff": [0.609, 0.964, 0.944, 1.059, 0.962], "phase": "Vitesse de pointe atteinte sur 15-20m, puis légère décélération jusqu'à 30 m (1.8% plus lent sur le dernier tronçon).", "sexe": "F", "commentaire": "Vitesse maximale en retrait (5.74 m/s, 20.7 km/h), en dessous de la moyenne des femmes.\nProfil plutôt orienté force : déficit relatif de vitesse (V0=5.86 m/s vs F0=7.55 N/kg).\nQualité du sprint : perte technique marquée quand la vitesse augmente (Drf très négatif pour son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Buste peu incliné vers l'avant au début du sprint, bonne extension de la jambe arrière, bras relativement compacts ; posture globalement correcte. À travailler : buste plus incliné pour améliorer l'accélération, attaque du pied trop talon", "seg_speed": [3.262, 5.353, 5.556, 5.882, 5.556, 5.774]}, "Anaëlle": {"groupe": "Equilibré", "splits": [1.483, 2.367, 3.183, 3.951, 4.683, 5.483], "F0": 7.1044, "V0": 6.7981, "Pmax": 12.0742, "FVslope": -1.0451, "RFmax": 0.3902, "Drf": -0.0998, "Vopt": 3.3991, "MaxSpeed": 6.5663, "groupe2": "Equilibré", "deltas": [1.483, 0.884, 0.816, 0.768, 0.732, 0.8], "pct_diff": [0.596, 0.923, 0.941, 0.953, 1.093], "phase": "Vitesse de pointe atteinte sur 20-25m, puis légère décélération jusqu'à 30 m (8.5% plus lent sur le dernier tronçon).", "sexe": "F", "commentaire": "Vitesse maximale élevée (6.57 m/s, 23.6 km/h), au-dessus de la moyenne des femmes.\nProfil force-vitesse équilibré (F0=7.10 N/kg, V0=6.80 m/s).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe).\nPriorité : entretien du profil équilibré, optimisation technique et travail de Pmax en situation.", "posture": "Buste peu incliné vers l'avant au début du sprint, levée de genoux faible, posture correcte. Attaquer plus l'avant du pied", "seg_speed": [3.372, 5.656, 6.127, 6.51, 6.831, 6.25]}, "Axelle": {"groupe": "Déficit Force", "splits": [1.567, 2.4, 3.2, 3.883, 4.6, 5.317], "F0": 6.0028, "V0": 7.5959, "Pmax": 11.3993, "FVslope": -0.7903, "RFmax": 0.3777, "Drf": -0.0753, "Vopt": 3.798, "MaxSpeed": 7.1846, "groupe2": "Déficit Force", "deltas": [1.567, 0.833, 0.8, 0.683, 0.717, 0.717], "pct_diff": [0.532, 0.96, 0.854, 1.05, 1], "phase": "Vitesse de pointe atteinte sur 15-20m, puis légère décélération jusqu'à 30 m (4.7% plus lent sur le dernier tronçon).", "sexe": "F", "commentaire": "Vitesse maximale élevée (7.18 m/s, 25.9 km/h), au-dessus de la moyenne des femmes.\nProfil plutôt orienté vitesse : déficit relatif de force (F0=6.00 N/kg vs V0=7.60 m/s).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe), bon maintien de l'efficacité technique à haute vitesse (Drf parmi les meilleurs de son groupe).\nPriorité : développement de la force horizontale (sprints résistés lourds/traîneau, musculation, pliométrie horizontale).", "posture": "Les bras partent assez nettement sur le côté (balancier large plutôt qu'avant-arrière), ce qui peut faire perdre en efficacité ; buste et jambe arrière plutôt bien tenus. À travailler en priorité : resserrer l'action de bras dans l'axe et éviter le balancier du buste.", "seg_speed": [3.191, 6.002, 6.25, 7.321, 6.974, 6.974]}, "Baptiste": {"groupe": "Déficit Force", "splits": [1.483, 2.283, 2.95, 3.617, 4.233, 4.817], "F0": 6.1263, "V0": 9.1429, "Pmax": 14.0032, "FVslope": -0.6701, "RFmax": 0.4049, "Drf": -0.0627, "Vopt": 4.5715, "MaxSpeed": 8.3356, "groupe2": "Déficit Force", "deltas": [1.483, 0.8, 0.667, 0.667, 0.616, 0.584], "pct_diff": [0.539, 0.834, 1, 0.924, 0.948], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale élevée (8.34 m/s, 30.0 km/h), au-dessus de la moyenne des hommes.\nProfil plutôt orienté vitesse  : déficit relatif de force (F0=6.13 N/kg vs V0=9.14 m/s).\nQualité du sprint : orientation de la force peu efficace au démarrage (RFmax faible pour son groupe), bon maintien de l'efficacité technique à haute vitesse (Drf parmi les meilleurs de son groupe).\nPriorité : développement de la force horizontale (sprints résistés lourds/traîneau, musculation, pliométrie horizontale).", "posture": "Buste vertical et action compacte, bonne posture de sprinteur à cette vitesse. S'incliner plus au démarrage.", "seg_speed": [3.372, 6.25, 7.496, 7.496, 8.117, 8.562]}, "Chloé": {"groupe": "Equilibré", "splits": [1.583, 2.5, 3.383, 4.217, 5.067, 5.867], "F0": 6.5223, "V0": 6.2365, "Pmax": 10.1691, "FVslope": -1.0458, "RFmax": 0.3625, "Drf": -0.1007, "Vopt": 3.1183, "MaxSpeed": 6.0339, "groupe2": "Equilibré", "deltas": [1.583, 0.917, 0.883, 0.834, 0.85, 0.8], "pct_diff": [0.579, 0.963, 0.945, 1.019, 0.941], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "F", "commentaire": "Vitesse maximale dans la moyenne des femmes (6.03 m/s, 21.7 km/h).\nProfil force-vitesse équilibré par rapport à son groupe (F0=6.52 N/kg, V0=6.24 m/s).\nQualité technique de sprint dans la moyenne du groupe (RFmax et Drf proches des valeurs de son groupe).\nPriorité : entretien du profil équilibré, optimisation technique et travail de Pmax en situation.", "posture": "Buste légèrement incliné vers l'avant, foulée un peu trop milieu du pied, propulsion vertical élevée. À travailler : fréquense, extension de hanche", "seg_speed": [3.159, 5.453, 5.663, 5.995, 5.882, 6.25]}, "Clara": {"groupe": "Equilibré", "splits": [1.633, 2.567, 3.45, 4.3, 5.167, 6], "F0": 6.183, "V0": 6.1284, "Pmax": 9.4729, "FVslope": -1.0089, "RFmax": 0.3517, "Drf": -0.0975, "Vopt": 3.0642, "MaxSpeed": 5.9271, "groupe2": "Equilibré", "deltas": [1.633, 0.934, 0.883, 0.85, 0.867, 0.833], "pct_diff": [0.572, 0.945, 0.963, 1.02, 0.961], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "F", "commentaire": "Vitesse maximale dans la moyenne des femmes (5.93 m/s, 21.3 km/h).\nProfil équilibré (F0=6.18 N/kg vs V0=6.13 m/s).\nQualité du sprint : orientation de la force peu efficace au démarrage (RFmax faible pour son groupe).\nPriorité : développement de la force horizontale (sprints résistés lourds/traîneau, musculation, pliométrie horizontale).", "posture": "Bras hauts et assez écartés, ce qui suggère un relâchement du haut du corps à travailler. S'incliner plus au démarrage.", "seg_speed": [3.062, 5.353, 5.663, 5.882, 5.767, 6.002]}, "Elsa": {"groupe": "Déficit Vitesse", "splits": [1.767, 2.817, 3.85, 4.817, 5.883, 6.933], "F0": 6.0589, "V0": 5.0106, "Pmax": 7.5897, "FVslope": -1.2092, "RFmax": 0.3158, "Drf": -0.1186, "Vopt": 2.5053, "MaxSpeed": 4.9189, "groupe2": "Déficit Vitesse", "deltas": [1.767, 1.05, 1.033, 0.967, 1.066, 1.05], "pct_diff": [0.594, 0.984, 0.936, 1.102, 0.985], "phase": "Vitesse de pointe atteinte sur 15-20m, puis légère décélération jusqu'à 30 m (7.9% plus lent sur le dernier tronçon).", "sexe": "F", "commentaire": "Vitesse maximale en retrait (4.92 m/s, 17.7 km/h), en dessous de la moyenne des femmes.\nProfil plutôt orienté force : déficit relatif de vitesse (V0=5.01 m/s vs F0=6.06 N/kg).\nQualité du sprint : orientation de la force peu efficace au démarrage (RFmax faible pour son groupe), perte technique marquée quand la vitesse augmente (Drf très négatif pour son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Buste droit, bonne extension de la jambe arrière visible, posture correcte dans l'ensemble. Attaque du pied talon, ce qui n'aide pas la propulsion vers l'avant.", "seg_speed": [2.83, 4.762, 4.84, 5.171, 4.69, 4.762]}, "Florent": {"groupe": "Déficit Force", "splits": [1.317, 2.05, 2.733, 3.35, 3.917, 4.483], "F0": 7.8635, "V0": 9.2293, "Pmax": 18.1437, "FVslope": -0.852, "RFmax": 0.4595, "Drf": -0.0785, "Vopt": 4.6147, "MaxSpeed": 8.6313, "groupe2": "Déficit Force", "deltas": [1.317, 0.733, 0.683, 0.617, 0.567, 0.566], "pct_diff": [0.557, 0.932, 0.903, 0.919, 0.998], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale élevée (8.63 m/s, 31.1 km/h), au-dessus de la moyenne des hommes.\nProfil plutôt orienté vitesse : déficit relatif de force (F0=7.86 N/kg vs V0=9.23 m/s).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe).\nPriorité : développement de la force horizontale (sprints résistés lourds/traîneau, musculation, pliométrie horizontale).", "posture": "Buste plutôt vertical avec une bonne remontée de genou, posture dynamique et équilibrée.", "seg_speed": [3.797, 6.821, 7.321, 8.104, 8.818, 8.834]}, "Gabriel2": {"groupe": "Déficit Vitesse", "splits": [1.333, 2.083, 2.817, 3.483, 4.15, 4.8], "F0": 8.7613, "V0": 7.8483, "Pmax": 17.1903, "FVslope": -1.1163, "RFmax": 0.45, "Drf": -0.1043, "Vopt": 3.9241, "MaxSpeed": 7.5581, "groupe2": "Déficit Vitesse", "deltas": [1.333, 0.75, 0.734, 0.666, 0.667, 0.65], "pct_diff": [0.563, 0.979, 0.907, 1.002, 0.975], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale en retrait (7.56 m/s, 27.2 km/h), en dessous de la moyenne des hommes.\nProfil plutôt orienté force  : déficit relatif de vitesse (V0=7.85 m/s vs F0=8.76 N/kg).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe), perte technique marquée quand la vitesse augmente (Drf très négatif pour son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Buste vertical et action compacte, bonne posture de sprinteur à cette vitesse.", "seg_speed": [3.751, 6.667, 6.812, 7.508, 7.496, 7.692]}, "GabrielB": {"groupe": "Déficit Vitesse", "splits": [1.367, 2.1, 2.85, 3.55, 4.233, 4.95], "F0": 9.0199, "V0": 7.4912, "Pmax": 16.8925, "FVslope": -1.2041, "RFmax": 0.4444, "Drf": -0.1126, "Vopt": 3.7456, "MaxSpeed": 7.2179, "groupe2": "Déficit Vitesse", "deltas": [1.367, 0.733, 0.75, 0.7, 0.683, 0.717], "pct_diff": [0.536, 1.023, 0.933, 0.976, 1.05], "phase": "Vitesse de pointe atteinte sur 20-25m, puis légère décélération jusqu'à 30 m (4.7% plus lent sur le dernier tronçon).", "sexe": "H", "commentaire": "Vitesse maximale en retrait (7.22 m/s, 26.0 km/h), en dessous de la moyenne des hommes.\nProfil plutôt orienté force : déficit relatif de vitesse (V0=7.49 m/s vs F0=9.02 N/kg).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe), perte technique marquée quand la vitesse augmente (Drf très négatif pour son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Bonne inclinaison du buste et belle extension de la jambe arrière, posture efficace. Attaque du pied un peu trop talon.", "seg_speed": [3.658, 6.821, 6.667, 7.143, 7.321, 6.974]}, "GaëtanI": {"groupe": "Déficit Force", "splits": [1.633, 2.417, 3.217, 3.9, 4.583, 5.283], "F0": 5.5376, "V0": 8.0009, "Pmax": 11.0764, "FVslope": -0.6921, "RFmax": 0.368, "Drf": -0.0659, "Vopt": 4.0004, "MaxSpeed": 7.4469, "groupe2": "Déficit Force", "deltas": [1.633, 0.784, 0.8, 0.683, 0.683, 0.7], "pct_diff": [0.48, 1.02, 0.854, 1, 1.025], "phase": "Vitesse de pointe atteinte sur 15-20m, puis légère décélération jusqu'à 30 m (2.4% plus lent sur le dernier tronçon).", "sexe": "H", "commentaire": "Vitesse maximale en retrait (7.45 m/s, 26.8 km/h), en dessous de la moyenne des hommes.\nProfil plutôt orienté vitesse : déficit relatif de force (F0=5.54 N/kg vs V0=8.00 m/s).\nQualité du sprint : orientation de la force peu efficace au démarrage (RFmax faible pour son groupe), bon maintien de l'efficacité technique à haute vitesse (Drf parmi les meilleurs de son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Buste assez droit, action de jambe correcte, pas d'anomalie flagrante. Lever le regard pour se grandir en fin d'accélération", "seg_speed": [3.062, 6.378, 6.25, 7.321, 7.321, 7.143]}, "Louise": {"groupe": "Déficit Vitesse", "splits": [1.567, 2.417, 3.317, 4.067, 4.883, 5.767], "F0": 7.0333, "V0": 6.35, "Pmax": 11.1654, "FVslope": -1.1076, "RFmax": 0.3766, "Drf": -0.1064, "Vopt": 3.175, "MaxSpeed": 6.1608, "groupe2": "Déficit Vitesse", "deltas": [1.567, 0.85, 0.9, 0.75, 0.816, 0.884], "pct_diff": [0.542, 1.059, 0.833, 1.088, 1.083], "phase": "Vitesse de pointe atteinte sur 15-20m, puis légère décélération jusqu'à 30 m (15.2% plus lent sur le dernier tronçon).", "sexe": "F", "commentaire": "Vitesse maximale dans la moyenne des femmes (6.16 m/s, 22.2 km/h).\nProfil plutôt orienté force : déficit relatif de vitesse (V0=6.35 m/s vs F0=7.03 N/kg).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe).\nPriorité : développement de la vitesse maximale (sprints assistés/lancés, travail de fréquence gestuelle, relâchement).", "posture": "Buste compact et droit, posture correcte. Pas d'utilisation des bras et du haut du corps", "seg_speed": [3.191, 5.882, 5.556, 6.667, 6.127, 5.656]}, "Lucas": {"groupe": "Déficit Force", "splits": [1.467, 2.233, 2.967, 3.6, 4.25, 4.85], "F0": 6.5251, "V0": 8.6791, "Pmax": 14.158, "FVslope": -0.7518, "RFmax": 0.412, "Drf": -0.0705, "Vopt": 4.3395, "MaxSpeed": 8.07, "groupe2": "Déficit Force", "deltas": [1.467, 0.766, 0.734, 0.633, 0.65, 0.6], "pct_diff": [0.522, 0.958, 0.862, 1.027, 0.923], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale dans la moyenne des hommes (8.07 m/s, 29.1 km/h).\nProfil plutôt orienté vitesse : déficit relatif de force (F0=6.53 N/kg vs V0=8.68 m/s).\nQualité du sprint : bon maintien de l'efficacité technique à haute vitesse (Drf parmi les meilleurs de son groupe).\nPriorité : développement de la force horizontale (sprints résistés lourds/traîneau, musculation, pliométrie horizontale).", "posture": "Très bonne extension de la jambe arrière en fin de poussée, buste bien engagé ; Regarde un peu bas, cela casse la posture droite", "seg_speed": [3.408, 6.527, 6.812, 7.899, 7.692, 8.333]}, "Noé": {"groupe": "Déficit Force", "splits": [1.383, 2.15, 2.817, 3.467, 4.083, 4.7], "F0": 7.5017, "V0": 8.6276, "Pmax": 16.1804, "FVslope": -0.8695, "RFmax": 0.4396, "Drf": -0.0812, "Vopt": 4.3138, "MaxSpeed": 8.1622, "groupe2": "Déficit Force", "deltas": [1.383, 0.767, 0.667, 0.65, 0.616, 0.617], "pct_diff": [0.555, 0.87, 0.975, 0.948, 1.002], "phase": "Vitesse de pointe atteinte sur 20-25m, puis légère décélération jusqu'à 30 m (0.2% plus lent sur le dernier tronçon).", "sexe": "H", "commentaire": "Vitesse maximale élevée (8.16 m/s, 29.4 km/h), au-dessus de la moyenne des hommes.\nProfil plutôt orienté vitesse : déficit relatif de force (F0=7.50 N/kg, V0=8.63 m/s).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe).\nPriorité : entretien du profil équilibré, optimisation technique et travail de Pmax en situation.", "posture": "Buste droit, bonne amplitude de genou, posture de sprint efficace.", "seg_speed": [3.615, 6.519, 7.496, 7.692, 8.117, 8.104]}, "Pierre": {"groupe": "Déficit Force", "splits": [1.5, 2.3, 3.033, 3.7, 4.367, 4.967], "F0": 6.1758, "V0": 8.4769, "Pmax": 13.088, "FVslope": -0.7285, "RFmax": 0.3975, "Drf": -0.0687, "Vopt": 4.2384, "MaxSpeed": 7.8823, "groupe2": "Déficit Force", "deltas": [1.5, 0.8, 0.733, 0.667, 0.667, 0.6], "pct_diff": [0.533, 0.916, 0.91, 1, 0.9], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale dans la moyenne des hommes (7.88 m/s, 28.4 km/h).\nProfil plutôt orienté vitesse : déficit relatif de force (F0=6.18 N/kg vs V0=8.48 m/s).\nQualité du sprint : orientation de la force peu efficace au démarrage (RFmax faible pour son groupe), bon maintien de l'efficacité technique à haute vitesse (Drf parmi les meilleurs de son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Buste droit, bonne extension de la jambe arrière, posture correcte.", "seg_speed": [3.333, 6.25, 6.821, 7.496, 7.496, 8.333]}, "PierreT": {"groupe": "Déficit Force", "splits": [1.483, 2.2, 2.983, 3.683, 4.3, 4.917], "F0": 6.7011, "V0": 8.2919, "Pmax": 13.8913, "FVslope": -0.8082, "RFmax": 0.4112, "Drf": -0.076, "Vopt": 4.1459, "MaxSpeed": 7.7968, "groupe2": "Déficit Force", "deltas": [1.483, 0.717, 0.783, 0.7, 0.617, 0.617], "pct_diff": [0.483, 1.092, 0.894, 0.881, 1], "phase": "Vitesse de pointe atteinte sur 20-25m, puis légère décélération jusqu'à 30 m (0.0% plus lent sur le dernier tronçon).", "sexe": "H", "commentaire": "Vitesse maximale dans la moyenne des hommes (7.80 m/s, 28.1 km/h).\nProfil plutôt orienté vitesse : déficit relatif de force  (F0=6.70 N/kg, V0=8.29 m/s).\nQualité technique de sprint dans la moyenne du groupe (RFmax et Drf proches des valeurs de son groupe).\nPriorité : développement de la puissance maximale (Pmax), via un travail combiné force-vitesse.", "posture": "Buste droit, bonne extension de la jambe arrière, posture correcte.", "seg_speed": [3.372, 6.974, 6.386, 7.143, 8.104, 8.104]}, "Stéphane": {"groupe": "Equilibré", "splits": [1.5, 2.383, 3.233, 3.95, 4.717, 5.483], "F0": 6.7591, "V0": 6.8883, "Pmax": 11.6397, "FVslope": -0.9812, "RFmax": 0.3845, "Drf": -0.0937, "Vopt": 3.4441, "MaxSpeed": 6.6264, "groupe2": "Equilibré", "deltas": [1.5, 0.883, 0.85, 0.717, 0.767, 0.766], "pct_diff": [0.589, 0.963, 0.844, 1.07, 0.999], "phase": "Vitesse de pointe atteinte sur 15-20m, puis légère décélération jusqu'à 30 m (6.4% plus lent sur le dernier tronçon).", "sexe": "H", "commentaire": "Vitesse maximale en retrait (6.63 m/s, 23.9 km/h), en dessous de la moyenne des hommes.\nProfil équilibré (V0=6.89 m/s vs F0=6.76 N/kg).\nQualité du sprint : orientation de la force peu efficace au démarrage (RFmax faible pour son groupe), perte technique marquée quand la vitesse augmente (Drf très négatif pour son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Buste droit, foulée ample, mouvement de bras et de jambes trop ample/fréquence trop faible.", "seg_speed": [3.333, 5.663, 5.882, 6.974, 6.519, 6.527]}, "Thomas": {"groupe": "Déficit Force", "splits": [1.55, 2.35, 3.133, 3.833, 4.5, 5.133], "F0": 5.8769, "V0": 8.1131, "Pmax": 11.92, "FVslope": -0.7244, "RFmax": 0.3819, "Drf": -0.0688, "Vopt": 4.0565, "MaxSpeed": 7.5909, "groupe2": "Déficit Force", "deltas": [1.55, 0.8, 0.783, 0.7, 0.667, 0.633], "pct_diff": [0.516, 0.979, 0.894, 0.953, 0.949], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale dans la moyenne des hommes (7.59 m/s, 27.3 km/h).\nProfil plutôt orienté vitesse : déficit relatif de force (F0=5.88 N/kg vs V0=8.11 m/s).\nQualité du sprint : orientation de la force peu efficace au démarrage (RFmax faible pour son groupe), bon maintien de l'efficacité technique à haute vitesse (Drf parmi les meilleurs de son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Inclinaison tête vers l'avant. À travailler : redressement du buste et du regard.", "seg_speed": [3.226, 6.25, 6.386, 7.143, 7.496, 7.899]}, "Yanis": {"groupe": "Equilibré", "splits": [1.317, 2.1, 2.767, 3.4, 4.067, 4.683], "F0": 8.494, "V0": 8.2574, "Pmax": 17.5344, "FVslope": -1.0287, "RFmax": 0.4549, "Drf": -0.0958, "Vopt": 4.1287, "MaxSpeed": 7.9146, "groupe2": "Equilibré", "deltas": [1.317, 0.783, 0.667, 0.633, 0.667, 0.616], "pct_diff": [0.595, 0.852, 0.949, 1.054, 0.924], "phase": "Toujours en accélération jusqu'à 30 m (vitesse de pointe sur 25-30m).", "sexe": "H", "commentaire": "Vitesse maximale dans la moyenne des hommes (7.91 m/s, 28.5 km/h).\nProfil équilibré (V0=8.26 m/s vs F0=8.49 N/kg).\nQualité du sprint : bonne orientation horizontale de la force au démarrage (RFmax élevé pour son groupe), perte technique marquée quand la vitesse augmente (Drf très négatif pour son groupe).\nPriorité : travail technique (orientation de la poussée horizontale, posture de course, gainage) avant tout travail de charge.", "posture": "Buste droit, bonne extension de jambe arrière, posture propre et équilibrée. Belle attaque avant du pied", "seg_speed": [3.797, 6.386, 7.496, 7.899, 7.496, 8.117]}}, "order": ["Adrien", "Alex", "Aloïs", "Ambre", "Anaëlle", "Axelle", "Baptiste", "Chloé", "Clara", "Elsa", "Florent", "Gabriel2", "GabrielB", "GaëtanI", "Louise", "Lucas", "Noé", "Pierre", "PierreT", "Stéphane", "Thomas", "Yanis"], "team_stats": {"F0": {"mean": 6.959044364188996, "std": 0.9581897863355543, "min": 5.537601661392731, "max": 9.019910328377339}, "V0": {"mean": 7.675634413700644, "std": 1.162309830757762, "min": 5.010632409335585, "max": 9.22932059980737}, "Pmax": {"mean": 13.379542492107593, "std": 2.834532958620518, "min": 7.589681030544672, "max": 18.14368429706134}, "FVslope": {"mean": -0.9279620683738311, "std": 0.18469623037286348, "min": -1.288642339902754, "max": -0.6700596483198883}, "RFmax": {"mean": 0.40133613383354355, "std": 0.037072408766426854, "min": 0.3157850687792686, "max": 0.4594884475864595}, "Drf": {"mean": -0.08793888361828257, "std": 0.0182268411195971, "min": -0.1245615835923124, "max": -0.06271160702347739}, "Vopt": {"mean": 3.837817206850322, "std": 0.5811549153788809, "min": 2.505316204667793, "max": 4.614660299903685}, "MaxSpeed": {"mean": 7.268192717689509, "std": 0.9839346414099562, "min": 4.918877987231617, "max": 8.631265250174476}}, "sexe_stats": {"H": {"F0": {"mean": 7.1097310004589405, "std": 1.0635349456067167, "min": 5.537601661392731, "max": 9.019910328377339}, "V0": {"mean": 8.325781967020736, "std": 0.6311238268224356, "min": 6.888299642403557, "max": 9.22932059980737}, "Pmax": {"mean": 14.76170489956589, "std": 2.2072145936939007, "min": 11.0763943751955, "max": 18.14368429706134}, "FVslope": {"mean": -0.8613114156320514, "std": 0.16109610391223675, "min": -1.204067100174585, "max": -0.6700596483198883}, "RFmax": {"mean": 0.4189972295755827, "std": 0.02827025310075628, "min": 0.3680393530381538, "max": 0.4594884475864595}, "Drf": {"mean": -0.08078876095679698, "std": 0.014983760372038028, "min": -0.1126431711673908, "max": -0.06271160702347739}, "Vopt": {"mean": 4.162890983510368, "std": 0.31556191341121786, "min": 3.444149821201778, "max": 4.614660299903685}, "MaxSpeed": {"mean": 7.824612637455944, "std": 0.5000362841659175, "min": 6.626360432010284, "max": 8.631265250174476}}, "F": {"F0": {"mean": 6.636144429324831, "std": 0.5557186399260219, "min": 6.002847968922429, "max": 7.548337410245113}, "V0": {"mean": 6.282461085157592, "std": 0.738681333503201, "min": 5.010632409335585, "max": 7.595909982390912}, "Pmax": {"mean": 10.417765904696957, "std": 1.395058341478509, "min": 7.589681030544672, "max": 12.07419260397495}, "FVslope": {"mean": -1.0707848956776447, "std": 0.14724947839554076, "min": -1.288642339902754, "max": -0.7902737108310168}, "RFmax": {"mean": 0.3634909286720311, "std": 0.022498753122650227, "min": 0.3157850687792686, "max": 0.3902243182059516}, "Drf": {"mean": -0.10326057503575171, "std": 0.014788753877377565, "min": -0.1245615835923124, "max": -0.07531622873169556}, "Vopt": {"mean": 3.141230542578796, "std": 0.3693406667516003, "min": 2.505316204667793, "max": 3.797954991195456}, "MaxSpeed": {"mean": 6.075864318190004, "std": 0.6494703395583579, "min": 4.918877987231617, "max": 7.184559888767297}}}, "seg_labels": ["0-5m", "5-10m", "10-15m", "15-20m", "20-25m", "25-30m"], "sexe_seg_avg": {"H": [3.489, 6.436, 6.909, 7.542, 7.676, 7.948], "F": [3.152, 5.494, 5.665, 6.204, 5.975, 5.953]}, "team_seg_avg": [3.382, 6.136, 6.513, 7.116, 7.135, 7.313], "lexique": [{"mesure": "F0 (N/kg)", "explication": "Force horizontale maximale théorique au départ (à vitesse nulle), rapportée au poids de corps. Reflète la capacité de force pure du coureur."}, {"mesure": "V0 (m/s)", "explication": "Vitesse maximale théorique que le coureur atteindrait si la force horizontale était nulle. Reflète la capacité de vitesse pure (qualités neuromusculaires à haute vitesse, fréquence gestuelle)."}, {"mesure": "Pmax (W/kg)", "explication": "Puissance mécanique horizontale maximale développée pendant l'accélération, rapportée au poids (Pmax = F0 x V0 / 4). Combine force et vitesse en une seule valeur de puissance."}, {"mesure": "FV Slope", "explication": "Pente du profil Force-Vitesse (= -F0/V0). Indique l'orientation du profil pour une Pmax donnée : plus la pente est raide (très négative), plus le profil est orienté force ; plus elle est plate, plus il est orienté vitesse."}, {"mesure": "RF max (%)", "explication": "Ratio de Force maximal : part de la force totale appliquée au sol qui est orientée horizontalement (donc utile à la propulsion), mesurée tout début de la poussée (vitesse quasi nulle). Reflète l'efficacité technique de l'application de force au départ."}, {"mesure": "Drf (%)", "explication": "Pente de la diminution du ratio de force (RF) quand la vitesse augmente. Un Drf proche de 0 = le coureur garde une bonne orientation horizontale de sa force même en accélérant (bonne technique) ; un Drf très négatif = perte rapide d'efficacité technique avec la vitesse (voir détail donné précédemment)."}, {"mesure": "Vopt (m/s)", "explication": "Vitesse à laquelle la puissance appliquée au sol est théoriquement maximale : repère de la vitesse où le compromis force/vitesse est mécaniquement le plus efficace."}, {"mesure": "Max Speed (m/s)", "explication": "Vitesse maximale instantanée réellement atteinte pendant le sprint (vitesse de pointe mesurée sur la portion la plus rapide du test)."}]}</script>
+<script>
+const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
+const { players, order, team_stats, sexe_stats, seg_labels, sexe_seg_avg, team_seg_avg, lexique } = DATA;
+
+const PROFILE_CLASS = { 'Déficit Force':'force', 'Déficit Vitesse':'vitesse', 'Equilibré':'equilibre' };
+const PROFILE_COLOR  = { 'Déficit Force':'#ff6b47', 'Déficit Vitesse':'#35c6cf', 'Equilibré':'#e8b339' };
+const METRIC_LABEL = { F0:'F0', V0:'V0', Pmax:'Pmax', FVslope:'Pente FV', RFmax:'RFmax', Drf:'Drf', Vopt:'Vopt', MaxSpeed:'Vitesse max' };
+const METRIC_UNIT  = { F0:'N/kg', V0:'m/s', Pmax:'W/kg', FVslope:'', RFmax:'%', Drf:'%', Vopt:'m/s', MaxSpeed:'m/s' };
+const METRIC_GOOD_HIGH = { F0:true, V0:true, Pmax:true, FVslope:null, RFmax:true, Drf:true, Vopt:true, MaxSpeed:true };
+const METRIC_FMT = (m,v)=> m==='RFmax' || m==='Drf' ? (v*100).toFixed(1) : v.toFixed(2);
+
+let state = { search:'', sexe:'TOUS', profil:'TOUS', sort:'MaxSpeed' };
+let currentPlayer = null;
+
+function profilClass(g){ return PROFILE_CLASS[g] || 'equilibre'; }
+
+function filteredSortedNames(){
+  let list = order.filter(n=>{
+    const p = players[n];
+    if(state.sexe!=='TOUS' && p.sexe!==state.sexe) return false;
+    if(state.profil!=='TOUS' && p.groupe!==state.profil) return false;
+    if(state.search && !n.toLowerCase().includes(state.search.toLowerCase())) return false;
+    return true;
+  });
+  list.sort((a,b)=>{
+    if(state.sort==='name') return a.localeCompare(b);
+    if(state.sort==='groupe') return (players[a].groupe||'').localeCompare(players[b].groupe||'');
+    return (players[b][state.sort]||0) - (players[a][state.sort]||0);
+  });
+  return list;
+}
+
+function buildFilters(){
+  const sexeWrap = document.getElementById('sexe-filters');
+  const profilWrap = document.getElementById('profil-filters');
+  const sexeOpts = [['TOUS','Tous'],['H','Hommes'],['F','Femmes']];
+  const profilOpts = [['TOUS','Tous profils'],['Déficit Force','Déficit force'],['Déficit Vitesse','Déficit vitesse'],['Equilibré','Équilibré']];
+  sexeWrap.innerHTML = sexeOpts.map(([v,l])=>`<button class="chip" data-sexe="${v}" aria-pressed="${state.sexe===v}">${l}</button>`).join('');
+  profilWrap.innerHTML = profilOpts.map(([v,l])=>`<button class="chip" data-profil="${v}" aria-pressed="${state.profil===v}">${l}</button>`).join('');
+  sexeWrap.querySelectorAll('.chip').forEach(btn=>btn.addEventListener('click',()=>{ state.sexe=btn.dataset.sexe; renderAll(); }));
+  profilWrap.querySelectorAll('.chip').forEach(btn=>btn.addEventListener('click',()=>{ state.profil=btn.dataset.profil; renderAll(); }));
+}
+
+function renderRoster(){
+  const list = filteredSortedNames();
+  const ul = document.getElementById('roster-list');
+  if(list.length===0){ ul.innerHTML = '<li class="roster-empty">Aucun joueur ne correspond.</li>'; return; }
+  ul.innerHTML = list.map(n=>{
+    const p = players[n];
+    const color = PROFILE_COLOR[p.groupe] || '#8993a2';
+    const active = currentPlayer===n ? 'active' : '';
+    return `<li><button class="roster-item ${active}" style="--rowcolor:${color}" data-name="${n}">
+      <div class="nm">${n}</div>
+      <div class="sub"><span>${p.sexe==='H'?'Homme':'Femme'} · ${p.groupe}</span><span>${p.MaxSpeed.toFixed(2)} m/s</span></div>
+    </button></li>`;
+  }).join('');
+  ul.querySelectorAll('.roster-item').forEach(btn=>btn.addEventListener('click',()=>openPlayer(btn.dataset.name)));
+}
+
+function renderRecap(){
+  const list = filteredSortedNames();
+  const tbody = document.getElementById('recap-body');
+  tbody.innerHTML = list.map(n=>{
+    const p = players[n];
+    const cls = profilClass(p.groupe);
+    return `<tr data-name="${n}">
+      <td class="name">${n} <span class="sexe-tag">(${p.sexe})</span></td>
+      <td><span class="badge ${cls}">${p.groupe}</span></td>
+      <td>${p.F0.toFixed(2)}</td>
+      <td>${p.V0.toFixed(2)}</td>
+      <td>${p.Pmax.toFixed(2)}</td>
+      <td>${(p.RFmax*100).toFixed(1)}%</td>
+      <td>${(p.Drf*100).toFixed(2)}%</td>
+      <td>${p.MaxSpeed.toFixed(2)} m/s</td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('tr').forEach(tr=>tr.addEventListener('click',()=>openPlayer(tr.dataset.name)));
+}
+
+function renderAll(){
+  buildFilters();
+  renderRoster();
+  renderRecap();
+}
+
+let segChart = null;
+function openPlayer(name){
+  currentPlayer = name;
+  const p = players[name];
+  document.getElementById('recap-view').hidden = true;
+  document.getElementById('player-view').hidden = false;
+  document.getElementById('pv-name').textContent = name;
+  document.getElementById('pv-maxspeed').textContent = p.MaxSpeed.toFixed(2);
+  const cls = profilClass(p.groupe);
+  document.getElementById('pv-badges').innerHTML =
+    `<span class="badge ${cls}">${p.groupe}</span><span class="sexe-tag">${p.sexe==='H'?'Homme':'Femme'}</span>`;
+  document.getElementById('pv-group-hint').textContent =
+    `vs moyenne des ${p.sexe==='H'?'hommes':'femmes'} du groupe (${(p.sexe==='H'?Object.values(players).filter(x=>x.sexe==='H').length:Object.values(players).filter(x=>x.sexe==='F').length)} athlètes)`;
+
+  // segment speed chart
+  const gAvg = sexe_seg_avg[p.sexe];
+  if(segChart) segChart.destroy();
+  segChart = new Chart(document.getElementById('chart-segments'), {
+    type:'line',
+    data:{ labels: seg_labels, datasets:[
+      { label:name, data:p.seg_speed, borderColor:'#ff6b47', backgroundColor:'rgba(255,107,71,.15)', borderWidth:2.5, tension:.3, pointRadius:3, fill:true },
+      { label:'Moyenne groupe', data:gAvg, borderColor:'#5d6878', borderDash:[5,4], borderWidth:2, pointRadius:0, tension:.3, fill:false }
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{ legend:{ labels:{ color:'#93a0b2', font:{family:'Inter', size:11.5} } } },
+      scales:{
+        x:{ ticks:{ color:'#93a0b2', font:{size:11} }, grid:{ color:'#232a35' } },
+        y:{ ticks:{ color:'#93a0b2', font:{size:11} }, grid:{ color:'#232a35' }, title:{display:true,text:'m/s',color:'#5d6878'} }
+      }
+    }
+  });
+
+  // stat bars
+  const metrics = ['F0','V0','Pmax','FVslope','RFmax','Drf','Vopt','MaxSpeed'];
+  const gs = sexe_stats[p.sexe];
+  const barsHtml = metrics.map(m=>{
+    const stat = gs[m];
+    const v = p[m];
+    const lo = Math.min(stat.min, v), hi = Math.max(stat.max, v);
+    const range = (hi-lo) || 1;
+    const fillPct = Math.max(2, Math.min(100, ((v-lo)/range)*100));
+    const avgPct = Math.max(0, Math.min(100, ((stat.mean-lo)/range)*100));
+    const goodHigh = METRIC_GOOD_HIGH[m];
+    let color = '#8993a2';
+    if(goodHigh!==null){ color = v >= stat.mean ? '#35c6cf' : '#ff6b47'; }
+    const delta = v - stat.mean;
+    const sign = delta>=0?'+':'';
+    return `<div class="stat-bar-row">
+      <div class="lbl"><span><b>${METRIC_LABEL[m]}</b></span><span class="val">${METRIC_FMT(m,v)}${METRIC_UNIT[m]?(' '+METRIC_UNIT[m]):''}</span></div>
+      <div class="track"><div class="fill" style="width:${fillPct}%; background:${color}"></div><div class="avg-tick" style="left:${avgPct}%"></div></div>
+      <div class="delta">${sign}${METRIC_FMT(m,delta)}${METRIC_UNIT[m]?(' '+METRIC_UNIT[m]):''} vs moyenne du groupe (point = moyenne)</div>
+    </div>`;
+  }).join('');
+  document.getElementById('stat-bars').innerHTML = barsHtml;
+
+  // splits table
+  const segNames = ['5 m','10 m','15 m','20 m','25 m','30 m'];
+  document.getElementById('splits-table').innerHTML =
+    '<tr><th>Distance</th>' + segNames.map(s=>`<th>${s}</th>`).join('') + '</tr>' +
+    '<tr><td>Temps cumulé (s)</td>' + p.splits.map(s=>`<td>${s.toFixed(2)}</td>`).join('') + '</tr>';
+
+  document.getElementById('pv-commentaire').textContent = p.commentaire || '—';
+  document.getElementById('pv-posture').textContent = p.posture || '—';
+
+  renderRoster();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+document.getElementById('back-btn').addEventListener('click', ()=>{
+  currentPlayer = null;
+  document.getElementById('player-view').hidden = true;
+  document.getElementById('recap-view').hidden = false;
+  renderRoster();
+});
+
+document.getElementById('search').addEventListener('input', e=>{ state.search = e.target.value; renderAll(); });
+document.getElementById('sort-select').addEventListener('change', e=>{ state.sort = e.target.value; renderAll(); });
+
+document.getElementById('lex-open').addEventListener('click', ()=>{
+  document.getElementById('lex-content').innerHTML = lexique.map(l=>`<dt>${l.mesure}</dt><dd>${l.explication}</dd>`).join('');
+  document.getElementById('lex-modal').hidden = false;
+});
+document.getElementById('lex-close').addEventListener('click', ()=>{ document.getElementById('lex-modal').hidden = true; });
+document.getElementById('lex-modal').addEventListener('click', e=>{ if(e.target.id==='lex-modal') e.target.hidden = true; });
+
+renderAll();
+</script>
+</body>
+</html>
